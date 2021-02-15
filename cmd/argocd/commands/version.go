@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strings"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	log "github.com/sirupsen/logrus"
@@ -92,42 +94,31 @@ func getServerVersion(options *argocdclient.ClientOptions) *version.VersionMessa
 }
 
 func printClientVersion(version *common.Version, short bool) {
-	fmt.Printf("%s: %s\n", cliName, version)
-
-	if short {
-		return
-	}
-
-	fmt.Printf("  BuildDate: %s\n", version.BuildDate)
-	fmt.Printf("  GitCommit: %s\n", version.GitCommit)
-	fmt.Printf("  GitTreeState: %s\n", version.GitTreeState)
-	if version.GitTag != "" {
-		fmt.Printf("  GitTag: %s\n", version.GitTag)
-	}
-	fmt.Printf("  GoVersion: %s\n", version.GoVersion)
-	fmt.Printf("  Compiler: %s\n", version.Compiler)
-	fmt.Printf("  Platform: %s\n", version.Platform)
+	printVersion(cliName, *version, short)
 }
 
 func printServerVersion(version *version.VersionMessage, short bool) {
-	fmt.Printf("%s: %s\n", "argocd-server", version.Version)
+	printVersion("argocd-server", *version, short)
+}
+
+func printVersion(name string, version interface{}, short bool) {
+	value := reflect.ValueOf(version)
+	field := value.Type()
+
+	fmt.Printf("%s: %s\n", name, value.FieldByName("Version"))
 
 	if short {
 		return
 	}
 
-	fmt.Printf("  BuildDate: %s\n", version.BuildDate)
-	fmt.Printf("  GitCommit: %s\n", version.GitCommit)
-	fmt.Printf("  GitTreeState: %s\n", version.GitTreeState)
-	if version.GitTag != "" {
-		fmt.Printf("  GitTag: %s\n", version.GitTag)
+	for i := 0; i < value.NumField(); i++ {
+		f, v := field.Field(i).Name, value.Field(i).Interface()
+		if f == "Version" || v == "" || strings.Contains(f, "XXX") {
+			// Do not print if the Field=Version
+			// if Value is empty
+			// or if it is a proto generated field (XXX)
+			continue
+		}
+		fmt.Printf("  %s: %s\n", f, v)
 	}
-	fmt.Printf("  GoVersion: %s\n", version.GoVersion)
-	fmt.Printf("  Compiler: %s\n", version.Compiler)
-	fmt.Printf("  Platform: %s\n", version.Platform)
-	fmt.Printf("  Ksonnet Version: %s\n", version.KsonnetVersion)
-	fmt.Printf("  Kustomize Version: %s\n", version.KustomizeVersion)
-	fmt.Printf("  Helm Version: %s\n", version.HelmVersion)
-	fmt.Printf("  Kubectl Version: %s\n", version.KubectlVersion)
-	fmt.Printf("  Jsonnet Version: %s\n", version.JsonnetVersion)
 }
